@@ -99,11 +99,11 @@ def read_header(fp):
     """ Read binvox header. Mostly meant for internal use.
     """
     line = fp.readline().strip()
-    if not line.startswith(b'#binvox'):
+    if not line.startswith('#binvox'):
         raise IOError('Not a binvox file')
-    dims = list(map(int, fp.readline().strip().split(b' ')[1:]))
-    translate = list(map(float, fp.readline().strip().split(b' ')[1:]))
-    scale = list(map(float, fp.readline().strip().split(b' ')[1:]))[0]
+    dims = list(map(int, fp.readline().strip().split(' ')[1:]))
+    translate = list(map(float, fp.readline().strip().split(' ')[1:]))
+    scale = list(map(float, fp.readline().strip().split(' ')[1:]))[0]
     line = fp.readline()
     return dims, translate, scale
 
@@ -117,7 +117,8 @@ def read_as_3d_array(fp, fix_coords=True):
     Doesn't do any checks on input except for the '#binvox' line.
     """
     dims, translate, scale = read_header(fp)
-    raw_data = np.frombuffer(fp.read(), dtype=np.uint8)
+    
+    raw_data = np.frombuffer(bytes(fp.read(), 'utf-8'), dtype=np.uint8)
     # if just using reshape() on the raw data:
     # indexing the array as array[i,j,k], the indices map into the
     # coords as:
@@ -152,7 +153,9 @@ def read_as_coord_array(fp, fix_coords=True):
     Doesn't do any checks on input except for the '#binvox' line.
     """
     dims, translate, scale = read_header(fp)
-    raw_data = np.frombuffer(fp.read(), dtype=np.uint8)
+    #fp = bytes(str(fp), 'utf-8')
+
+    raw_data = np.frombuffer(bytes(fp.read(), 'utf-8'), dtype=np.uint8)
 
     values, counts = raw_data[::2], raw_data[1::2]
 
@@ -160,8 +163,12 @@ def read_as_coord_array(fp, fix_coords=True):
     index, end_index = 0, 0
     end_indices = np.cumsum(counts)
     indices = np.concatenate(([0], end_indices[:-1])).astype(end_indices.dtype)
-
-    values = values.astype(np.bool)
+    print(len(indices))
+    print(len(end_indices))
+    if len(values)>len(indices):
+        values = values.astype(np.bool)[:-1]
+    print(len(values))
+    print(values)
     indices = indices[values]
     end_indices = end_indices[values]
 

@@ -6,22 +6,22 @@ import numpy as np
 import trimesh
 from binvox import binvox
 import binvox_rw
+import tqdm
 #help(binvox)
 
 vox_res = 32
-dir_path = r"/Volumes/ROCKET-nime/ML_data/MN10/ModelNet10/"
-dataset_path = r"/Volumes/ROCKET-nime/ML_data/MN10/mn10_binvox"
+dir_path = r"C:\Users\nme\Downloads\cadapp\train_data\MN10\ModelNet10"
+dataset_path = r"C:\Users\nme\Downloads\cadapp\train_data\MN10\mn10_binvox"
 
 """for dir in os.listdir(dir_path):
     if not dir.startswith("._"):
-        #os.mkdir(os.path.join(dataset_path, dir))
+        os.mkdir(os.path.join(dataset_path, dir))
         os.mkdir(os.path.join(dataset_path,dir,"train"))
         os.mkdir(os.path.join(dataset_path,dir,"test"))
 
-        print(dir)
-"""
-paths = glob.glob(os.path.join(dir_path + "*","*","*.off"))
-#paths = paths[1:2]
+        print(dir)"""
+
+paths = glob.glob(os.path.join(dir_path , "*","*","*.off"))
 print("number of data:", len(paths))
 
 def parse_OFF(file_path):
@@ -77,28 +77,36 @@ def parse_OFF(file_path):
                 faces = np.asarray(faces).astype('float32')
                 return vertices, faces
 
-for file_path in paths:
-    print()
+for file_path in tqdm(paths):
     file_name = file_path.split(os.sep)[-1]
-    vertices, faces = parse_OFF(file_path)
-    mesh = trimesh.base.Trimesh(vertices, faces)
+    out_path = os.path.join(dataset_path, os.sep.join(file_path.split(os.sep)[-3:]))
+    if not os.path.isfile(out_path):
+        vertices, faces = parse_OFF(file_path)
+        mesh = trimesh.base.Trimesh(vertices, faces)
 
-    bounds = mesh.bounds
-    l, w, d = bounds[1][0] - bounds[0][0], bounds[1][1] - bounds[0][1], bounds[1][2] - bounds[0][2]
+        bounds = mesh.bounds
+        l, w, d = bounds[1][0] - bounds[0][0], bounds[1][1] - bounds[0][1], bounds[1][2] - bounds[0][2]
 
-    vox = mesh.voxelized(max(l, w, d) / vox_res).matrix
-    bin_vox = trimesh.exchange.binvox.Binvox(mesh, vox.shape, translate=None, scale=None)
-    bin_vox = binvox.Binvox(vox, dims=vox.shape, axis_order="xyz")
+        vox = mesh.voxelized(max(l, w, d) / vox_res).matrix
+        nv = np.zeros(vox.shape)
+        np.copyto(nv, vox, casting="same_kind", where=True)
+        nv.resize(vox_res, vox_res, vox_res)
+        vox = nv.astype(np.uint8)
+        #bin_vox = trimesh.exchange.binvox.Binvox(mesh, vox.shape, translate=None, scale=None)
+        bin_vox = binvox.Binvox(vox, dims=vox.shape, axis_order="xyz")
 
+        print(bin_vox.data)
+        def save_binvox(filename, data):
+            dims = data.shape
+            translate = [0.0, 0.0, 0.0]
+            model = binvox_rw.Voxels(data, dims, translate, 1.0, 'xyz')
+            print(model.data.shape)
+            with open(filename, 'w', encoding="utf-8") as f:
+                model.write(f)     
 
-    def save_binvox(filename, data):
-        dims = data.shape
-        translate = [0.0, 0.0, 0.0]
-        model = binvox_rw.Voxels(data, dims, translate, 1.0, 'xyz')
-        print(model)
-        with open(filename, 'w') as f:
-            model.write(f)
+        out_path = str(out_path[:-4] + ".binvox")
+        save_binvox(out_path, bin_vox.data)
 
-    out_path = os.path.join(dataset_path,"/".join(file_path.split(os.sep)[-3:]))
-    save_binvox(out_path[:-4] + ".binvox", bin_vox.data)
-
+        with open(out_path, 'r', encoding="utf-8") as f:
+            re = binvox_rw.read_as_coord_array(f, fix_coords=False)
+            print(re.data, re.data.shape, re.dims, re.translate)

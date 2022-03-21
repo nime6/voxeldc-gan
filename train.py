@@ -7,8 +7,7 @@ from dataset import *
 
 model = DCGAN(config.nz, config.nsf, config.nvx, config.batch_size, config.learning_rate)
 dataset = Dataset(config.dataset_path)
-total_batch = dataset.num_examples / config.batch_size
-print(total_batch)
+total_batch = int(dataset.num_examples / config.batch_size)
 for epoch in range(1, 51):
     for batch in range(total_batch):
         z = np.random.uniform(-1, 1, [config.batch_size, config.nz]).astype(np.float32)

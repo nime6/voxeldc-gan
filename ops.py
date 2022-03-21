@@ -66,8 +66,15 @@ def conv3d(x, shape, name, bias=False, stride=2, padding='SAME'):
             h = h + b
         return h
 
-def deconv3d(x, shape, output_shape, name, bias=False, stride=2, padding='SAME'):
+def deconv3d(x, shape, output_shape, name, bias=False, stride=int(2), padding='SAME'):
     with tf.variable_scope(name):
+        x = tf.cast(x,dtype="float32")
+        shape = list(map(int, shape))
+        output_shape = list(map(int, output_shape))
+
+        print(shape)
+        print(output_shape)
+
         W = weight_variable(shape)
         h = tf.nn.conv3d_transpose(x, W, output_shape, strides=[1, stride, stride, stride, 1], padding=padding)
         if bias:
@@ -110,13 +117,16 @@ def minibatch_discrimination(x, n_kernels, dim_per_kernel, name):
 
         def half(tens, second):
             m, n, _ = tens.get_shape().as_list()
-            return tf.slice(tens, [0, 0, second*(batch_size/2)], [m, n, batch_size/2])
+            return tf.slice(tens, [0, 0, int(second*(batch_size/2))], list(map(int,[m, n, batch_size/2])))
 
         f1 = tf.reduce_sum(half(masked, 0), 2) / tf.reduce_sum(half(mask, 0))
         f2 = tf.reduce_sum(half(masked, 1), 2) / tf.reduce_sum(half(mask, 1))
         return tf.concat([x, f1, f2], 1)
 
 def batch_norm(x, train, name, decay=0.99, epsilon=1e-5):
+    print(f"x: {x}")
+    print(f"train: {train}")
+    print(f"name: {name}")
     shape = x.get_shape().as_list()
     with tf.variable_scope(name):
         beta = tf.get_variable('beta', [shape[-1]], initializer=tf.constant_initializer(0.))
@@ -130,16 +140,18 @@ def batch_norm(x, train, name, decay=0.99, epsilon=1e-5):
 
         def func1():
             # execute at training time
-            batch_mean, batch_var = tf.nn.moments(x, range(len(shape) - 1))
+            batch_mean, batch_var = tf.nn.moments(x, axes=[0,1])
             update_mean = tf.assign_sub(pop_mean, (1 - decay)*(pop_mean - batch_mean))
             update_var = tf.assign_sub(pop_var, (1 - decay)*(pop_var - batch_var))
             with tf.control_dependencies([update_mean, update_var]):
+                print(f"f1: {tf.nn.batch_normalization(x, batch_mean, batch_var, beta, gamma, epsilon)}")
                 return tf.nn.batch_normalization(x, batch_mean, batch_var, beta, gamma, epsilon)
 
         def func2():
             # execute at test time
+            print(f"f2: {tf.nn.batch_normalization(x, pop_mean, pop_var, beta, gamma, epsilon)}")
             return tf.nn.batch_normalization(x, pop_mean, pop_var, beta, gamma, epsilon)
-
+        return func2()
         return tf.cond(train, func1, func2)
 
 def average_gradients(tower_grads):

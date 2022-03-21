@@ -3,6 +3,7 @@ import glob
 import os
 import util
 import config
+import binvox_rw
 
 class Dataset:
 
@@ -30,5 +31,7 @@ class Dataset:
     def read_data(self, start, end):
         data = []
         for fname in self.examples[start:end]:
-            data.append(util.read_binvox(fname))
+            with open(fname, 'r', encoding="utf-8") as f:
+                re = binvox_rw.read_as_coord_array(f, fix_coords=False)
+                print(re.data, re.data.shape, re.dims, re.translate)
         return np.array(data)
