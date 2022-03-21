@@ -3,7 +3,6 @@ import util
 from ops import *
 
 class Model(object):
-
     def __init__(self, vars):
         self.saver = tf.train.Saver(vars)
 
